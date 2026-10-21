@@ -234,6 +234,15 @@ USE inventory;
 
     This section can be run independently of the sample-table setup above.
 */
+/*
+    Search every text column in the current database for North, South, East and West
+
+    Return a column when at least one of these four complete values exists.
+    Count matching rows for each value, ignoring case and surrounding spaces.
+    For example, ' west ' matches West; 'West Depot' does not.
+
+    This section can be run independently of the sample-table setup above.
+*/
 SET NOCOUNT ON;
 
 IF OBJECT_ID(N'tempdb..#ColumnsContainingAnyValue') IS NOT NULL
@@ -244,10 +253,10 @@ CREATE TABLE #ColumnsContainingAnyValue
     SchemaName      sysname NOT NULL,
     TableName       sysname NOT NULL,
     ColumnName      sysname NOT NULL,
-    West_RowCount   bigint  NOT NULL,
-    East_RowCount   bigint  NOT NULL,
     North_RowCount  bigint  NOT NULL,
-    South_RowCount  bigint  NOT NULL
+    South_RowCount  bigint  NOT NULL,
+    East_RowCount   bigint  NOT NULL,
+    West_RowCount   bigint  NOT NULL
 );
 
 DECLARE
@@ -296,18 +305,26 @@ BEGIN
             SchemaName,
             TableName,
             ColumnName,
-            West_RowCount,
-            East_RowCount,
             North_RowCount,
-            South_RowCount
+            South_RowCount,
+            East_RowCount,
+            West_RowCount
         )
         SELECT
             @SchemaName,
             @TableName,
             @ColumnName,
-            /* Count rows whose complete value is West. */
+
+            /* Count rows whose complete value is North. */
             COUNT_BIG(CASE
-                WHEN txt.Value = N''WEST''
+                WHEN txt.Value = N''NORTH''
+                THEN 1
+            END),
+
+
+            /* Count rows whose complete value is South. */
+            COUNT_BIG(CASE
+                WHEN txt.Value = N''SOUTH''
                 THEN 1
             END),
 
@@ -317,17 +334,14 @@ BEGIN
                 THEN 1
             END),
 
-            /* Count rows whose complete value is North. */
-            COUNT_BIG(CASE
-                WHEN txt.Value = N''NORTH''
-                THEN 1
-            END),
 
-            /* Count rows whose complete value is South. */
+            /* Count rows whose complete value is West. */
             COUNT_BIG(CASE
-                WHEN txt.Value = N''SOUTH''
+                WHEN txt.Value = N''WEST''
                 THEN 1
             END)
+
+
 
         /*
             NOLOCK can read uncommitted data and miss or double-count rows.
@@ -346,7 +360,7 @@ BEGIN
         /* Keep this column when any of the four values exists. */
         HAVING
             COUNT_BIG(CASE
-                WHEN txt.Value IN (N''WEST'', N''EAST'', N''NORTH'', N''SOUTH'')
+                WHEN txt.Value IN (N''NORTH'', N''SOUTH'', N''EAST'', N''WEST'')
                 THEN 1
             END) > 0;';
 
@@ -369,10 +383,11 @@ SELECT
     SchemaName,
     TableName,
     ColumnName,
-    West_RowCount,
-    East_RowCount,
     North_RowCount,
-    South_RowCount
+    South_RowCount,
+    East_RowCount,
+    West_RowCount
+    
 FROM #ColumnsContainingAnyValue
 ORDER BY
     SchemaName,
